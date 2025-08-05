@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "EdgeSuggestAI",
   "version": "1.1",
-  "description": "Suggests search queries from the internet as you type.",
+  "description": "Auto-suggests search queries from the internet as you type.",
   "icons": {
     "16": "icons/edge-16.svg",
     "48": "icons/edge-48.svg",
@@ -20,8 +20,6 @@
     }
   ],
   "host_permissions": [
-    "https://suggestqueries.google.com/*",
-    "https://api.bing.com/*",
-    "https://duckduckgo.com/*"
+    "https://suggestqueries.google.com/*"
   ]
 }

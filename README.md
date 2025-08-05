@@ -1,12 +1,12 @@
 # EdgeSuggestAI
 
-A minimal Edge browser extension to auto-suggest search queries as you type on Google, Bing, and DuckDuckGo, using real-time suggestions from the internet.
+A minimal Edge browser extension to auto-suggest search queries as you type on Google, Bing, and DuckDuckGo, using real-time suggestions from the Google Suggest API.
 
 ## Features
 
-- Detects search input on major engines
+- Detects the search input on major engines
 - Fetches suggestions from the Google Suggest API as you type
-- Keyboard/mouse navigation support
+- Keyboard and mouse navigation
 - Clean, styled dropdown UI
 - No user tracking
 
@@ -27,4 +27,4 @@ A minimal Edge browser extension to auto-suggest search queries as you type on G
 
 ---
 
-*This MVP fetches real-time suggestions from Google. For Bing or DuckDuckGo, you can adjust the fetch API endpoint in content.js.*
+*This MVP fetches real-time suggestions from Google. If you want Bing or DuckDuckGo suggestions, adjust the API endpoint in content.js as needed.*
