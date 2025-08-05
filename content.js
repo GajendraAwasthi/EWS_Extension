@@ -1,10 +1,10 @@
-// EdgeSuggestAI: Fetches real-time suggestions from Google Suggest API
+// EdgeSuggestAI: Cross-browser, robust real-time suggestion overlay
 
 (function () {
   if (window.hasRunEdgeSuggestAI) return;
   window.hasRunEdgeSuggestAI = true;
 
-  // Utility: Find search box
+  // Helper: get search box for all major search engines
   function getSearchBox() {
     const url = location.hostname;
     // Google
@@ -16,7 +16,21 @@
     return null;
   }
 
-  // Create dropdown
+  // Helper: Wait for the search box to appear (useful for SPA navigation)
+  function waitForSearchBox(cb) {
+    let lastBox = null;
+    function check() {
+      const box = getSearchBox();
+      if (box && box !== lastBox) {
+        lastBox = box;
+        cb(box);
+      }
+      setTimeout(check, 500);
+    }
+    check();
+  }
+
+  // Custom dropdown
   let dropdown = document.createElement('div');
   dropdown.className = 'edge-suggestai-dropdown';
   dropdown.style.display = 'none';
@@ -38,7 +52,7 @@
     }
   }
 
-  // Show dropdown
+  // Show and position dropdown
   function showDropdown(suggestions, inputBox) {
     if (!suggestions.length) {
       dropdown.style.display = 'none';
@@ -49,10 +63,12 @@
       let el = document.createElement('div');
       el.className = 'edge-suggestai-suggestion';
       el.textContent = s;
+      el.dataset.idx = idx;
       el.addEventListener('mousedown', function (e) {
         e.preventDefault();
         inputBox.value = s;
-        dropdown.style.display = 'none';
+        inputBox.dispatchEvent(new Event('input', {bubbles:true}));
+        hideDropdown();
         inputBox.focus();
       });
       dropdown.appendChild(el);
@@ -60,7 +76,7 @@
     // Position dropdown
     const rect = inputBox.getBoundingClientRect();
     dropdown.style.left = rect.left + window.scrollX + 'px';
-    dropdown.style.top = rect.bottom + window.scrollY + 'px';
+    dropdown.style.top = (rect.bottom + window.scrollY) + 'px';
     dropdown.style.width = rect.width + 'px';
     dropdown.style.display = 'block';
   }
@@ -71,63 +87,74 @@
   let selectedIdx = -1;
   function handleKey(e, suggestions, inputBox) {
     if (dropdown.style.display !== 'block') return;
+    const items = dropdown.querySelectorAll('.edge-suggestai-suggestion');
     if (e.key === 'ArrowDown') {
       selectedIdx = Math.min(selectedIdx + 1, suggestions.length - 1);
-      updateActive();
+      updateActive(items);
       e.preventDefault();
     } else if (e.key === 'ArrowUp') {
       selectedIdx = Math.max(selectedIdx - 1, 0);
-      updateActive();
+      updateActive(items);
       e.preventDefault();
-    } else if (e.key === 'Enter' && selectedIdx >= 0) {
+    } else if (e.key === 'Enter' && selectedIdx >= 0 && suggestions[selectedIdx]) {
       inputBox.value = suggestions[selectedIdx];
+      inputBox.dispatchEvent(new Event('input', {bubbles:true}));
+      hideDropdown();
+      selectedIdx = -1;
+      e.preventDefault();
+    } else if (e.key === 'Escape') {
       hideDropdown();
       selectedIdx = -1;
       e.preventDefault();
     }
   }
-  function updateActive() {
-    const items = dropdown.querySelectorAll('.edge-suggestai-suggestion');
+  function updateActive(items) {
     items.forEach((el, i) => {
       el.classList.toggle('edge-suggestai-active', i === selectedIdx);
     });
   }
 
-  // Attach listeners to input box
-  function attach() {
-    const inputBox = getSearchBox();
-    if (!inputBox) return;
+  // Main logic: attach handlers to search box
+  function setupInput(inputBox) {
+    // Prevent double-binding
+    if (inputBox.edgeSuggestAIActive) return;
+    inputBox.edgeSuggestAIActive = true;
+
+    // Turn off native autocomplete
+    inputBox.setAttribute('autocomplete', 'off');
+    inputBox.setAttribute('aria-autocomplete', 'list');
 
     let lastVal = '';
-    inputBox.setAttribute('autocomplete', 'off');
-    inputBox.addEventListener('input', async function () {
+    let debounceTimer = null;
+
+    inputBox.addEventListener('input', function () {
       const val = inputBox.value;
       if (!val || val === lastVal) {
         hideDropdown();
         return;
       }
       lastVal = val;
-      const suggestions = await fetchSuggestions(val);
-      selectedIdx = -1;
-      showDropdown(suggestions, inputBox);
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(async () => {
+        const suggestions = await fetchSuggestions(val);
+        selectedIdx = -1;
+        showDropdown(suggestions, inputBox);
 
-      inputBox.onkeydown = function (ev) {
-        handleKey(ev, suggestions, inputBox);
-      };
+        inputBox.onkeydown = function (ev) {
+          handleKey(ev, suggestions, inputBox);
+        };
+      }, 120);
     });
 
     inputBox.addEventListener('blur', function () {
       setTimeout(hideDropdown, 100);
     });
+
+    // Hide dropdown on navigation
     window.addEventListener('beforeunload', hideDropdown);
   }
 
-  // Wait for input box to be available
-  function waitForBox() {
-    const b = getSearchBox();
-    if (b) attach();
-    else setTimeout(waitForBox, 400);
-  }
-  waitForBox();
+  // Start extension: always re-attach to search box (for SPA navigation)
+  waitForSearchBox(setupInput);
 
 })();
