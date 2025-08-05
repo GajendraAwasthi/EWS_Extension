@@ -1,0 +1,25 @@
+// Basic local word prediction list
+window.edgeSuggestAIWordList = [
+  "apple", "android", "amazon", "ai", "algorithm", "azure", "analytics", "app",
+  "banana", "bing", "browser", "bitcoin", "blockchain", "blog",
+  "cloud", "chatgpt", "chrome", "css", "cybersecurity", "camera",
+  "duckduckgo", "data", "download", "deep learning", "developer",
+  "edge", "email", "extension", "elon musk", "encryption",
+  "facebook", "firefox", "file", "flutter", "github", "google",
+  "html", "http", "hacker", "hardware",
+  "ios", "internet", "image", "instagram",
+  "javascript", "json", "jobs", "java",
+  "keyword", "kubernetes", "kotlin",
+  "linux", "login", "linkedin", "language model",
+  "microsoft", "machine learning", "meta", "markdown", "music",
+  "node", "network", "news", "notion",
+  "openai", "online", "opera", "outlook",
+  "python", "privacy", "prompt", "programming",
+  "react", "reddit", "review", "robot", "resume",
+  "security", "search", "safari", "spotify",
+  "twitter", "translate", "typescript", "tutorial",
+  "user", "update", "upload", "url",
+  "vpn", "video", "vue", "voice assistant",
+  "web", "windows", "wifi", "wordpress", "wiki", "weather",
+  "youtube", "yahoo"
+];
