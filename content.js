@@ -1,63 +1,35 @@
-// EdgeSuggestAI: Cross-browser, robust real-time suggestion overlay
-
 (function () {
-  if (window.hasRunEdgeSuggestAI) return;
-  window.hasRunEdgeSuggestAI = true;
+  if (window.edgeSuggestAIInit) return;
+  window.edgeSuggestAIInit = true;
 
-  // Helper: get search box for all major search engines
-  function getSearchBox() {
-    const url = location.hostname;
-    // Google
-    if (url.includes('google.com')) return document.querySelector('input[name="q"]');
-    // Bing
-    if (url.includes('bing.com')) return document.querySelector('input[name="q"]');
-    // DuckDuckGo
-    if (url.includes('duckduckgo.com')) return document.querySelector('input[name="q"]');
-    return null;
-  }
-
-  // Helper: Wait for the search box to appear (useful for SPA navigation)
-  function waitForSearchBox(cb) {
-    let lastBox = null;
-    function check() {
-      const box = getSearchBox();
-      if (box && box !== lastBox) {
-        lastBox = box;
-        cb(box);
-      }
-      setTimeout(check, 500);
-    }
-    check();
-  }
-
-  // Custom dropdown
   let dropdown = document.createElement('div');
   dropdown.className = 'edge-suggestai-dropdown';
   dropdown.style.display = 'none';
   document.body.appendChild(dropdown);
 
-  // Fetch suggestions from Google Suggest API
-  async function fetchSuggestions(q) {
-    if (!q) return [];
-    try {
-      const res = await fetch(
-        "https://suggestqueries.google.com/complete/search?client=firefox&q=" + encodeURIComponent(q)
-      );
-      if (!res.ok) return [];
-      const data = await res.json();
-      if (Array.isArray(data) && Array.isArray(data[1])) return data[1];
-      return [];
-    } catch (e) {
-      return [];
-    }
+  let selectedIdx = -1;
+  let lastSuggestions = [];
+  let attachedInput = null;
+
+  function getSearchBox() {
+    // Google, Bing, DuckDuckGo all use input[name="q"]
+    return document.querySelector('input[name="q"]:not([data-edge-suggestai])');
   }
 
-  // Show and position dropdown
+  function fetchSuggestions(q) {
+    if (!q) return Promise.resolve([]);
+    return fetch(
+      "https://suggestqueries.google.com/complete/search?client=firefox&q=" + encodeURIComponent(q)
+    ).then(res => res.ok ? res.json() : []).then(data => Array.isArray(data) && Array.isArray(data[1]) ? data[1] : []).catch(() => []);
+  }
+
   function showDropdown(suggestions, inputBox) {
     if (!suggestions.length) {
       dropdown.style.display = 'none';
       return;
     }
+    lastSuggestions = suggestions;
+    selectedIdx = -1;
     dropdown.innerHTML = '';
     suggestions.forEach((s, idx) => {
       let el = document.createElement('div');
@@ -67,7 +39,7 @@
       el.addEventListener('mousedown', function (e) {
         e.preventDefault();
         inputBox.value = s;
-        inputBox.dispatchEvent(new Event('input', {bubbles:true}));
+        inputBox.dispatchEvent(new Event('input', { bubbles: true }));
         hideDropdown();
         inputBox.focus();
       });
@@ -81,80 +53,88 @@
     dropdown.style.display = 'block';
   }
 
-  function hideDropdown() { dropdown.style.display = 'none'; }
-
-  // Keyboard navigation support
-  let selectedIdx = -1;
-  function handleKey(e, suggestions, inputBox) {
-    if (dropdown.style.display !== 'block') return;
-    const items = dropdown.querySelectorAll('.edge-suggestai-suggestion');
-    if (e.key === 'ArrowDown') {
-      selectedIdx = Math.min(selectedIdx + 1, suggestions.length - 1);
-      updateActive(items);
-      e.preventDefault();
-    } else if (e.key === 'ArrowUp') {
-      selectedIdx = Math.max(selectedIdx - 1, 0);
-      updateActive(items);
-      e.preventDefault();
-    } else if (e.key === 'Enter' && selectedIdx >= 0 && suggestions[selectedIdx]) {
-      inputBox.value = suggestions[selectedIdx];
-      inputBox.dispatchEvent(new Event('input', {bubbles:true}));
-      hideDropdown();
-      selectedIdx = -1;
-      e.preventDefault();
-    } else if (e.key === 'Escape') {
-      hideDropdown();
-      selectedIdx = -1;
-      e.preventDefault();
-    }
+  function hideDropdown() {
+    dropdown.style.display = 'none';
+    selectedIdx = -1;
+    lastSuggestions = [];
   }
-  function updateActive(items) {
+
+  function updateActive() {
+    const items = dropdown.querySelectorAll('.edge-suggestai-suggestion');
     items.forEach((el, i) => {
       el.classList.toggle('edge-suggestai-active', i === selectedIdx);
     });
   }
 
-  // Main logic: attach handlers to search box
-  function setupInput(inputBox) {
-    // Prevent double-binding
-    if (inputBox.edgeSuggestAIActive) return;
-    inputBox.edgeSuggestAIActive = true;
+  function handleKeyDown(e, inputBox) {
+    if (dropdown.style.display !== 'block') return;
+    const items = dropdown.querySelectorAll('.edge-suggestai-suggestion');
+    if (e.key === 'ArrowDown') {
+      selectedIdx = Math.min(selectedIdx + 1, lastSuggestions.length - 1);
+      updateActive();
+      e.preventDefault();
+    } else if (e.key === 'ArrowUp') {
+      selectedIdx = Math.max(selectedIdx - 1, 0);
+      updateActive();
+      e.preventDefault();
+    } else if (e.key === 'Enter' && selectedIdx >= 0 && lastSuggestions[selectedIdx]) {
+      inputBox.value = lastSuggestions[selectedIdx];
+      inputBox.dispatchEvent(new Event('input', { bubbles: true }));
+      hideDropdown();
+      e.preventDefault();
+    } else if (e.key === 'Escape') {
+      hideDropdown();
+      e.preventDefault();
+    }
+  }
 
-    // Turn off native autocomplete
+  function attachToInput(inputBox) {
+    if (!inputBox || inputBox.dataset.edgeSuggestai === "1") return;
+    inputBox.dataset.edgeSuggestai = "1";
     inputBox.setAttribute('autocomplete', 'off');
     inputBox.setAttribute('aria-autocomplete', 'list');
 
-    let lastVal = '';
-    let debounceTimer = null;
-
     inputBox.addEventListener('input', function () {
       const val = inputBox.value;
-      if (!val || val === lastVal) {
+      if (!val) {
         hideDropdown();
         return;
       }
-      lastVal = val;
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(async () => {
-        const suggestions = await fetchSuggestions(val);
-        selectedIdx = -1;
+      fetchSuggestions(val).then(suggestions => {
         showDropdown(suggestions, inputBox);
+      });
+    });
 
-        inputBox.onkeydown = function (ev) {
-          handleKey(ev, suggestions, inputBox);
-        };
-      }, 120);
+    inputBox.addEventListener('keydown', function (e) {
+      handleKeyDown(e, inputBox);
     });
 
     inputBox.addEventListener('blur', function () {
       setTimeout(hideDropdown, 100);
     });
 
-    // Hide dropdown on navigation
-    window.addEventListener('beforeunload', hideDropdown);
+    attachedInput = inputBox;
   }
 
-  // Start extension: always re-attach to search box (for SPA navigation)
-  waitForSearchBox(setupInput);
+  // Attach to new search box if present (including after SPA navigation)
+  const observer = new MutationObserver(() => {
+    const box = getSearchBox();
+    if (box) attachToInput(box);
+  });
 
+  observer.observe(document.body, { childList: true, subtree: true });
+
+  // Initial attach at load
+  document.addEventListener('DOMContentLoaded', () => {
+    const box = getSearchBox();
+    if (box) attachToInput(box);
+  });
+  // Also run on script load in case DOMContentLoaded already fired
+  setTimeout(() => {
+    const box = getSearchBox();
+    if (box) attachToInput(box);
+  }, 1000);
+
+  // Clean up dropdown on navigation
+  window.addEventListener('beforeunload', hideDropdown);
 })();

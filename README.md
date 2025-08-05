@@ -1,10 +1,10 @@
 # EdgeSuggestAI
 
-A robust, cross-browser extension for Edge, Chrome, and Firefox that auto-suggests internet search queries as you type in the search bar of Google, Bing, and DuckDuckGo.
+A robust, cross-browser extension for Edge, Chrome, and Firefox that overlays real-time Google search suggestions in the search bar of Google, Bing, and DuckDuckGo.
 
 ## Features
 
-- Works reliably across Edge, Chrome, Firefox
+- Works reliably on Edge, Chrome, Firefox
 - Supports Google, Bing, DuckDuckGo
 - Fetches suggestions from Google Suggest API in real time
 - Keyboard and mouse navigation (Up/Down/Enter/Click)
